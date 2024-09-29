@@ -1,0 +1,12 @@
+development:
+  adapter: redis
+  url: <%= ENV.fetch("REDIS_URL") { "redis://redis:6379/0" } %>
+  channel_prefix: <%= ENV.fetch("REDIS_CHANNEL_PREFIX") { "" } %>
+
+test:
+  adapter: test
+
+production:
+  adapter: redis
+  url: <%= ENV.fetch("REDIS_URL") { "redis://redis:6379/0" } %>
+  channel_prefix: <%= ENV.fetch("REDIS_CHANNEL_PREFIX") { "" } %>
