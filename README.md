@@ -3,27 +3,50 @@ A boilerplate combining Ruby on Rails, React, and Docker for quick setup and dep
 
 Based on and many thanks to [the Wild Code for Coffee](https://github.com/willcodeforcoffee/docker-rails-react/blob/master/README.md).
 
-#  Dockerized Development Environment for RoR and React
-This guide presents a setup for a Docker-based development environment that enables running React alongside a Ruby on Rails backend. It's tailored specifically for development purposes and is not intended as a production-ready setup (check the FAQ for more information).
+------
 
-This walkthrough illustrates how to establish a unified development environment for multiple programming languages without the need to install them directly on your local machine. Instead, Docker containers handle everything for you.
 
-In this guide, there will be provided a step-by-step tutorial on how to configure a Docker Compose file, allowing you to generate your React and Rails projects using Docker alone. This means you won’t need to have Ruby or Node installed on your computer.
 
-**Requirements:**
+This guide provides a step-by-step approach to setting up a <ins>**Docker**</ins>-based development environment for running a <ins>**React**</ins> frontend alongside a <ins>**Ruby on Rails**</ins> backend. Designed specifically for ***development purposes***, this setup simplifies dependency management and eliminates the need to install programming languages directly on a local machine, as everything is handled within Docker containers.
+
+The guide outlines how to configure a ***Docker Compose*** file, enabling the generation and execution of React and Rails projects entirely within Docker. This approach removes the necessity for local installations of Ruby or node.js, streamlining the development process and keeping the system clean. While optimized for development, this setup is not intended for production use; further information on production-ready guidelines can be found in the FAQ.
+
+
+## Table of Contents
+[Requirements](#requirements)
+
+[Step 1: Set up Docker Compose](#step-1-create-docker-composeyml)
+    
+[Step 2: Build the Frontend](#step-2-build-the-react-frontend)
+
+[Step 3: Build the Backend](#step-3-build-the-rails-backend)
+        
+- [Postgres and Redis Setup](#step-3a-add-postgres-and-redis-services)
+- [Rais Setup](#step-3b-add-the-rails-backend-service)
+- [Rails Integration with Other Services](#step-3c-configure-rails-to-use-other-services)
+- [Fixing Potential Problems](#fixing-the-serverpid-problem)
+
+[Step 4: Reverse Proxy Setup](#step-4-reverse-proxy-setup)
+
+[CLI commands](#how-can-rails-cli-commands-be-run)
+
+# Requirements
 
 To proceed with the instructions, you need to have the following software installed:
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/), there won’t be provided installation guidance here; please refer to the [the Docker website](https://www.docker.com/get-started/) for instructions specific to your operating system.
 
 Subtle differences exist in how Docker operates on Windows, macOS, and Linux. Extra steps may be necessary depending on the specific operating system version, which will be noted as required. Docker facilitates the creation of standardized developer environments independent of the host operating system. 
-## Getting Started
+# Getting Started
 
 Creating and running Docker containers from the command line is straightforward, but this guide focuses on running an entire environment. To manage multiple containers for a single application, the Docker feature known as [Docker Compose](https://docs.docker.com/compose/) will be utilized. Docker Compose simplifies the management of multiple containers, folder mappings, and networking between containers.
 
 Docker Compose operates using a [YAML](https://yaml.org/) named docker-compose.yml. Let’s start by setting that up.
 
-## Step 1: Create a docker-compose.yml file
+## Step 1: Set up Docker Compose
+
+### Create a docker-compose.yml file
+
 In the working directory, create a file named `docker-compose.yml` and populate it with the following content:
 
 ```yml
@@ -53,7 +76,8 @@ docker compose run frontend yarn create react-app app --template typescript
 
 All of these steps took a little over 10 minutes on my computer so don't be worried if it takes a while. This did not install Node on your host machine, it ran it from inside a Docker container.
 
-## Step 2: Create a Docker Image for Frontend
+## Step 2: Build the React Frontend
+### Create a Docker Image for Frontend
 
 At this stage, executing the following command from the working directory (or from within the `./frontend` directory) is necessary, as the folder may have been created with `root` permissions and requires changing ownership:
 
@@ -77,7 +101,7 @@ EXPOSE 3000
 
 The `Dockerfile` will utilize the same `image` specified in the `docker-compose` file (node:18.8.0-bullseye) as a base, setting `/app` as the directory for executing commands. Additionally, it will `EXPOSE` port 3000, which is the default for the `create-react-app` server.
 
-Next, update the  `Dockerfile` for creating the app image instead of the base Node:18-bullseye image:
+Next, update the  `docker-compose.yml` for creating the app image instead of the base Node:18-bullseye image:
 
 
 ```yml
@@ -106,7 +130,7 @@ The React server can now be started using the following command:
 docker compose up
 ```
 
-Before proceeding to the next step, ensure that the current Docker services are stopped (`Ctrl+X` and run `docker-compose down`).
+Before proceeding to the next step, ensure that the current Docker services are stopped (`CTRL+X` and run `docker-compose down`).
 
 Next, edit the `docker-compose.yml` file to set it up to start the React development server by using the command `yarn start`, which will initiate the React development server:
 
@@ -133,13 +157,9 @@ Once the React server is operational, access it via a web browser by navigating 
 This process illustrates how to utilize Docker to set up a Node/React application without requiring any installation of programming languages. This is an exciting development! 🥳 Code can be edited directly from the host filesystem or within the container.
 
 
-Before proceeding to the next step, ensure that the current Docker services are stopped:
+Before proceeding to the next step, ensure that the current Docker services are stopped: `CTRL+X` and then run `docker-compose down`
 
-```sh
-docker compose down
-```
-
-## Step 3: Create the Rails Backend
+## Step 3: Build the Rails Backend
 
 The next step involves enhancing the existing frontend by integrating a backend service.
 
@@ -150,7 +170,7 @@ The initial focus will be on setting up the Postgres and Redis services. As data
 
 ### Step 3a: Add Postgres and Redis services
 
-Lets add the following snippet to our `docker-compose.yml` file:
+Let's add the following snippet to our `docker-compose.yml` file:
 
 ```yml
 services:
@@ -167,7 +187,7 @@ services:
   postgres:
     image: postgres:12.11-alpine
     environment:
-      POSTGRES_PASSWORD: _Password123!
+      POSTGRES_PASSWORD: pg
     volumes:
       - postgres-data:/var/lib/postgresql/data:rw
   redis:
@@ -183,16 +203,13 @@ volumes:
 The `volume` mappings for the databases have been included. Docker uses the `host:container` notation for this purpose. In this scenario, two *Docker managed volumes* named `postgres-data` and `redis-data` are created in the `volumes` section. For the frontend, the source code was mapped to a specific folder, but for the database services, the focus on data location is less critical, allowing Docker to manage the volumes independently.
 
 Additionally, the `environment` section for the `postgres` service is noteworthy. In alignment with the [12 Factor App](https://12factor.net/config) principles, both Docker and Postgres facilitate the configuration of settings via environment variables. The [Postgres Docker image mandates the creation of a database with an associated password](https://hub.docker.com/_/postgres/), which is achieved through the `POSTGRES_PASSWORD` environment variable.
-_______
-______
-______
+
+> Currently, `POSTGRES_PASSWORD` is not a secure option, even for development environments. 
+> Instructions on how to configure it more securely will be provided  later (in step 3c) when setting up the contents of the `.env` file.\
+\* For the moment, nothing is pushed to the remote branch. Before any potential push to the remote branch at this stage, ensure that `docker-compose.yml` is added <ins>only temporarily</ins> to the `.gitignore` file (`echo 'docker.compose.yml' >> .gitignore`).
+> 
 
 
-> Right now `POSTGRES_PASSWORD` is not a safe or secure password, even for a development environment. I'll show you how to configure it better soon.
-
-______
-_____
-_____
 To verify the configuration, start Docker once more:
 
 ```sh
@@ -211,17 +228,11 @@ and
 docker-rails-react-redis-1     | 1:M 01 Jan 2022 00:00:00.000 * Ready to accept connections
 ```
 
-If both services display "ready to accept connections," we can proceed with setting up Rails. Use CTRL-C to stop Docker, then run:
+If both services display "ready to accept connections," we can proceed with setting up Rails. Use `CTRL+C` to stop Docker, then run `docker compose down` to stop the services again
 
 ### Step 3b: Add the Rails Backend service
 
 The initial step is to set up a container for our backend Rails service. We'll replicate the process used for the `frontend` service by utilizing a `Dockerfile` and specifying a build context.
-
-At this point, it's necessary to run the following command again from the working directory (or from within the `./api` directory) to change `root` ownership and permissions to `user`:
-
-```sh
-sudo chown -R $USER .
-```
 
 Execute the following commands to create an `api` folder and a `Dockerfile`:
 
@@ -261,7 +272,7 @@ services:
   postgres:
     image: postgres:12.11-alpine
     environment:
-      POSTGRES_PASSWORD: _Password123!
+      POSTGRES_PASSWORD: pg
     volumes:
       - postgres-data:/var/lib/postgresql/data:rw
   redis:
@@ -275,7 +286,6 @@ services:
     command: sh -c "/wait && bin/start_rails.sh"
     restart: "no"
     volumes:
-      # Persist (and share) Bundler data
       - ./api:/app
 volumes:
   postgres-data:
@@ -285,7 +295,14 @@ volumes:
 We've established a volume mapping from `api` to `app` in the container. Now, let's utilize this container to create a new Rails app:
 
 ```sh
-docker compose run api rails new . --database=postgresql --api --skip-git
+docker compose run api rails new . --database=postgresql --api --skip-git --force
+
+```
+
+At this point, it's necessary to run the following command again from the working directory (or from within the `./api` directory) to change `root` ownership and permissions to `user`:
+
+```sh
+sudo chown -R $USER .
 ```
 
 This will initiate the following steps:
@@ -296,6 +313,8 @@ This will initiate the following steps:
 Due to the volume mapping, your new Rails app will be generated in the `api` folder. Take a look.
 
 ### Step 3c: Configure Rails to Use Other Services
+
+### Environment File 
 
 Rails requires some setup to integrate with the services we've created. The configurations can easily be added using [environment variables](https://docs.docker.com/compose/environment-variables/). We already defined one environment variable, `POSTGRES_PASSWORD`, above. To simplify configuration maintenance and enable sharing among containers, let's move our settings into a [separate file named `.env`](https://docs.docker.com/compose/environment-variables/#the-env-file).
 
@@ -317,7 +336,15 @@ REDIS_CHANNEL_PREFIX=docker_rails_react
 REDIS_URL=redis://redis:6379/0
 ```
 
-#### Edit database.yml
+
+It is now paramount as an essential security measure to prevent the exposure of sensitive personal information to add both the `.env` file and the Rails Μaster Κey (`api/config/master.key`) to the `.gitignore` file:
+```bash
+echo '.env' >> .gitignore
+echo 'api/config/master.key' >> .gitignore
+```
+
+
+###  - Edit database.yml
 
 Let's configure Rails to use the database. Edit `api/config/database.yml` to include the following contents:
 
@@ -346,7 +373,7 @@ production:
   database: <%= ENV['POSTGRES_DB'] %>
 ```
 
-#### Edit cable.yml
+###  - Edit cable.yml
 
 We can configure ActionCable to utilize our Docker Redis instance in development as well. Edit `api/config/cable.yml` to include the following contents:
 
@@ -365,7 +392,7 @@ production:
   channel_prefix: <%= ENV.fetch("REDIS_CHANNEL_PREFIX") { "" } %>
 ```
 
-#### Edit Docker Compose
+### Edit Docker Compose
 
 Now to use it we can add `env_file` to all of the services and remove the `environment` section in our `docker-compose.yml` file:
 
@@ -377,7 +404,7 @@ services:
       dockerfile: Dockerfile
     command: yarn start
     restart: "no"
-    env_file: # new
+    env_file:
       - ".env"
     volumes:
       - ./frontend:/app
@@ -389,19 +416,19 @@ services:
       dockerfile: Dockerfile
     command: sh -c "bundle install && bin/rails server"
     restart: "no"
-    env_file: # new
+    env_file:
       - ".env"
     volumes:
       - ./api:/app
   postgres:
     image: postgres:12.11-alpine
-    env_file: # new
+    env_file:
       - ".env"
     volumes:
       - postgres-data:/var/lib/postgresql/data:rw
   redis:
     image: redis:7.0-alpine
-    env_file: # new
+    env_file:
       - ".env"
     volumes:
       - redis-data:/data:rw
@@ -526,7 +553,7 @@ volumes:
   redis-data:
 ```
 
-## Step 4: Reverse Proxy
+## Step 4: Reverse Proxy Setup
 
 The reverse proxy will sit in front of the React and Rails containers, making them accessible through a single URL (host and port) instead of two.
 
@@ -604,7 +631,7 @@ http {
 
 Much of the file consists of boilerplate copied from another file, but the critical changes are found in the `server` and `location` directives. Each `location` has a `proxy_pass` directing traffic to each service specified in our `docker-config.yml` file. Additionally, headers are included for connection upgrades to manage websocket delegation behind the scenes.
 
-### docker-compose.yml Changes
+### docker-compose.yml changes
 
 A new service named `proxy` has been created:
 1. Utilizing the `nginx` image
@@ -671,3 +698,5 @@ docker compose exec api rails help
 ```
 
 Simply replace `help` with the desired command!
+
+---
