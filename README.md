@@ -50,6 +50,7 @@ Docker Compose operates using a [YAML](https://yaml.org/) named docker-compose.y
 In the working directory, create a file named `docker-compose.yml` and populate it with the following content:
 
 ```yml
+version: "3.8"
 services:
   frontend:
     image: node:18.8.0-bullseye
